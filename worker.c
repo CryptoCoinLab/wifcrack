@@ -115,7 +115,7 @@ static char *work_thread(Worker *w, const char *suspect) {
 
     if (memcmp(target_hash, suspect_hash, 20) == 0) {
         worker_add_result(w, suspect);
-        worker_result_to_file_partial(w, suspect);
+        //worker_result_to_file_partial(w, suspect);
         return strdup(suspect);
     }
 
@@ -189,7 +189,7 @@ static void perform_work(Worker *w) {
         char buf[128];
         snprintf(buf, sizeof(buf), "Dummy result for %s", work_str);
         worker_add_result(w, buf);
-        worker_result_to_file_partial(w, buf);
+        //worker_result_to_file_partial(w, buf);
         break;
     }
    }
@@ -212,7 +212,7 @@ void worker_run(Worker *w) {
         printf("%s\n", w->results[i]);
     }
     if (w->result_count > 0) {
-        worker_result_to_file(w);
+        //worker_result_to_file(w);
     }
     snprintf(subject, sizeof(subject), "Worker '%s' ended, %zu result(s)", work_str, w->result_count);
     if (w->result_count > 0) {
