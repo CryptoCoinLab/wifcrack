@@ -64,6 +64,7 @@ Configuration *configuration_load_from_file(const char *filename) {
     char buf[256];
     char *work_s = NULL;
     char *wif = NULL;
+    char *wif_status = NULL;
     char *address = NULL;
     char *target_wif = NULL;
     guess_entry *head = NULL, *tail = NULL;
@@ -90,7 +91,17 @@ Configuration *configuration_load_from_file(const char *filename) {
         if (!work_s) {
             work_s = strdup(p);
         } else if (!wif) {
-            wif = strdup(p);
+            char *comma = strchr(p, ',');
+            if (comma) {
+                *comma = '\0';
+                wif = strdup(p);
+                char *s = comma + 1;
+                while (*s == ' ' || *s == '\t') s++;
+                if (*s)
+                    wif_status = strdup(s);
+            } else {
+                wif = strdup(p);
+            }
         } else if (!address) {
             address = strdup(p);
         } else {
@@ -105,11 +116,12 @@ Configuration *configuration_load_from_file(const char *filename) {
     fclose(f);
 
     WORK work = parse_work(work_s);
-    Configuration *cfg = configuration_create(address, wif,
-                                              target_wif ? target_wif : "",
+    const char *status_arg = wif_status ? wif_status : (target_wif ? target_wif : "");
+    Configuration *cfg = configuration_create(address, wif, status_arg,
                                               work, head);
     free(work_s);
     free(wif);
+    free(wif_status);
     free(address);
     free(target_wif);
     return cfg;
