@@ -7,6 +7,9 @@
 #include "bitcoin.h"
 #include "worker.h"
 
+static const char BASE58_ALPHABET[] = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+static const int BASE58_ALPHABET_LEN = 58;
+
 static const char *work_to_string(WORK work) {
     switch (work) {
         case WORK_END: return "END";
@@ -176,6 +179,109 @@ static void perform_work_alike(Worker *w) {
         free(result);
 }
 
+static void perform_work_search(Worker *w) {
+    const char *orig_wif = configuration_get_wif(w->config);
+    if (!orig_wif)
+        return;
+
+    int len = (int)strlen(orig_wif);
+    char *buf = strdup(orig_wif);
+    if (!buf)
+        return;
+
+    GuessPos positions[128];
+    int count = 0;
+    guess_entry *ge = w->config->guess;
+    for (int i = 0; i < len && count < 128; ++i) {
+        if (buf[i] == UNKNOWN_CHAR) {
+            positions[count].index = i;
+            if (ge) {
+                if (strcmp(ge->chars, "*") == 0)
+                    positions[count].chars = BASE58_ALPHABET;
+                else
+                    positions[count].chars = ge->chars;
+                ge = ge->next;
+            } else {
+                positions[count].chars = BASE58_ALPHABET;
+            }
+            count++;
+        }
+    }
+
+    time_t alive = time(NULL);
+    char *result = NULL;
+    set_loop(w, buf, positions, count, 0, &result, &alive);
+    free(buf);
+    if (result)
+        free(result);
+}
+
+static void perform_work_end(Worker *w) {
+    const char *orig_wif = configuration_get_wif(w->config);
+    if (!orig_wif)
+        return;
+
+    int len_base = (int)strlen(orig_wif);
+    int expected_len = configuration_is_compressed(w->config) ? COMPRESSED_WIF_LENGTH : 51;
+    int missing = expected_len - len_base;
+    if (missing <= 0) {
+        work_thread(w, orig_wif);
+        return;
+    }
+    char *buf = malloc(expected_len + 1);
+    if (!buf)
+        return;
+    memcpy(buf, orig_wif, len_base);
+    buf[expected_len] = '\0';
+
+    GuessPos positions[16];
+    guess_entry *ge = w->config->guess;
+    for (int i = 0; i < missing && i < 16; ++i) {
+        positions[i].index = len_base + i;
+        if (ge) {
+            positions[i].chars = ge->chars;
+            ge = ge->next;
+        } else {
+            positions[i].chars = BASE58_ALPHABET;
+        }
+        buf[len_base + i] = positions[i].chars[0];
+    }
+
+    time_t alive = time(NULL);
+    char *result = NULL;
+    set_loop(w, buf, positions, missing, 0, &result, &alive);
+    free(buf);
+    if (result)
+        free(result);
+}
+
+static void perform_work_rotate(Worker *w) {
+    const char *orig_wif = configuration_get_wif(w->config);
+    if (!orig_wif)
+        return;
+    int len = (int)strlen(orig_wif);
+    char *buf = strdup(orig_wif);
+    if (!buf)
+        return;
+    for (int i = 0; i < len; ++i) {
+        char orig = buf[i];
+        for (int j = 0; j < BASE58_ALPHABET_LEN; ++j) {
+            char c = BASE58_ALPHABET[j];
+            if (c == orig)
+                continue;
+            buf[i] = c;
+            work_thread(w, buf);
+        }
+        buf[i] = orig;
+    }
+    free(buf);
+}
+
+static void perform_work_jump(Worker *w) {
+    /* simplified: treat as SEARCH */
+    perform_work_search(w);
+}
+
 static void perform_work(Worker *w) {
     WORK work = configuration_get_work(w->config);
     const char *work_str = work_to_string(work);
@@ -184,6 +290,18 @@ static void perform_work(Worker *w) {
     switch (work) {
     case WORK_ALIKE:
         perform_work_alike(w);
+        break;
+    case WORK_SEARCH:
+        perform_work_search(w);
+        break;
+    case WORK_END:
+        perform_work_end(w);
+        break;
+    case WORK_ROTATE:
+        perform_work_rotate(w);
+        break;
+    case WORK_JUMP:
+        perform_work_jump(w);
         break;
     default: {
         char buf[128];
