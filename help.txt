@@ -1,5 +1,5 @@
 Usage:
-java -jar wifSolver.jar input.conf [email.conf]
+wifcrack input.conf [email.conf]
 
 Available solvers:
 END - for WIF with missing characters at the end
