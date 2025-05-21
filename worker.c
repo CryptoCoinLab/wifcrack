@@ -1,0 +1,129 @@
+#include "worker.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+static const char *work_to_string(WORK work) {
+    switch (work) {
+        case WORK_END: return "END";
+        case WORK_JUMP: return "JUMP";
+        case WORK_ROTATE: return "ROTATE";
+        case WORK_SEARCH: return "SEARCH";
+        case WORK_ALIKE: return "ALIKE";
+        case WORK_START:
+        default: return "START";
+    }
+}
+
+static void send_email(Worker *worker, const char *subject, const char *body) {
+    EmailConfiguration *email = configuration_get_email(worker->config);
+    if (!email) return;
+    (void)email; /* unused in this simplified implementation */
+    printf("[email] %s\n%s\n", subject, body ? body : "");
+}
+
+Worker *worker_create(Configuration *config) {
+    if (!config) return NULL;
+    Worker *w = calloc(1, sizeof(Worker));
+    if (!w) return NULL;
+    w->config = config;
+    w->time_id = (unsigned long)time(NULL);
+    return w;
+}
+
+void worker_free(Worker *w) {
+    if (!w) return;
+    for (size_t i = 0; i < w->result_count; ++i) {
+        free(w->results[i]);
+    }
+    free(w->results);
+    free(w);
+}
+
+void worker_add_result(Worker *w, const char *data) {
+    if (!w || !data) return;
+    if (w->result_count >= w->result_capacity) {
+        size_t newcap = w->result_capacity ? w->result_capacity * 2 : 4;
+        char **tmp = realloc(w->results, newcap * sizeof(char *));
+        if (!tmp) return;
+        w->results = tmp;
+        w->result_capacity = newcap;
+    }
+    w->results[w->result_count++] = strdup(data);
+}
+
+void worker_result_to_file(Worker *w) {
+    if (!w || w->result_count == 0) return;
+    char filename[64];
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    strftime(filename, sizeof(filename), "result_%Y%m%d_%H%M%S.txt", tm);
+    FILE *f = fopen(filename, "w");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+    for (size_t i = 0; i < w->result_count; ++i) {
+        fprintf(f, "%s\n", w->results[i]);
+    }
+    fclose(f);
+}
+
+void worker_result_to_file_partial(Worker *w, const char *data) {
+    if (!w || !data) return;
+    char filename[64];
+    snprintf(filename, sizeof(filename), "resultPartial_%lu.txt", w->time_id);
+    FILE *f = fopen(filename, "a");
+    if (!f) {
+        perror("fopen");
+        return;
+    }
+    fprintf(f, "%s\n", data);
+    fclose(f);
+}
+
+size_t worker_results_count(const Worker *w) {
+    return w ? w->result_count : 0;
+}
+
+static void perform_work(Worker *w) {
+    WORK work = configuration_get_work(w->config);
+    const char *work_str = work_to_string(work);
+    printf("Performing work: %s\n", work_str);
+
+    /* This is a simplified placeholder implementation.
+       Real logic for each work type would go here. */
+    char buf[128];
+    snprintf(buf, sizeof(buf), "Dummy result for %s", work_str);
+    worker_add_result(w, buf);
+    worker_result_to_file_partial(w, buf);
+}
+
+void worker_run(Worker *w) {
+    if (!w) return;
+    const char *work_str = work_to_string(configuration_get_work(w->config));
+    printf("--- Starting worker ---\n");
+    char subject[128];
+    snprintf(subject, sizeof(subject), "Starting worker '%s'", work_str);
+    send_email(w, subject, configuration_get_wif(w->config));
+
+    perform_work(w);
+
+    printf("--- Work finished ---\n");
+    printf("Worker '%s' ended, %zu result(s)\n", work_str, w->result_count);
+    for (size_t i = 0; i < w->result_count; ++i) {
+        printf("%s\n", w->results[i]);
+    }
+    if (w->result_count > 0) {
+        worker_result_to_file(w);
+    }
+    snprintf(subject, sizeof(subject), "Worker '%s' ended, %zu result(s)", work_str, w->result_count);
+    if (w->result_count > 0) {
+        send_email(w, subject, w->results[0]);
+    } else {
+        send_email(w, subject, "");
+    }
+}
+
