@@ -5,16 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-int main(void) {
-    DIR *dir = opendir("examples");
-    assert(dir && "examples directory missing");
-    struct dirent *ent;
-    int count = 0;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_type != DT_REG && ent->d_type != DT_LNK)
-            continue;
-
-
 int main() {
     // Test creating configuration with non-P2SH address
     Configuration *cfg = configuration_create("1BitcoinAddress", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "", WORK_START, NULL);
