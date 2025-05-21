@@ -1,8 +1,18 @@
 #include "configuration.h"
-#include <stdio.h>
-#include <string.h>
+
 #include <assert.h>
 #include <dirent.h>
+#include <stdio.h>
+#include <string.h>
+
+int main(void) {
+    DIR *dir = opendir("examples");
+    assert(dir && "examples directory missing");
+    struct dirent *ent;
+    int count = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_type != DT_REG && ent->d_type != DT_LNK)
+            continue;
 
 
 int main() {
@@ -34,10 +44,12 @@ int main() {
     struct dirent *ent;
     int parsed = 0;
     while ((ent = readdir(dir)) != NULL) {
+
         if (!strstr(ent->d_name, ".conf"))
             continue;
         char path[256];
         snprintf(path, sizeof(path), "examples/%s", ent->d_name);
+
         cfg = configuration_load_from_file(path);
         assert(cfg != NULL);
         assert(configuration_get_wif(cfg) != NULL);
@@ -48,5 +60,6 @@ int main() {
     printf("Parsed %d example configuration files.\n", parsed);
 
     printf("All tests passed.\n");
+
     return 0;
 }

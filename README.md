@@ -2,11 +2,18 @@
 
 This repository provides a small C module derived from a Java class used in a Bitcoin related project. The `configuration.h` and `configuration.c` files implement a `Configuration` structure and helper functions for managing solver configuration data.
 
-The project expects example data from the original [WifSolver](https://github.com/PawelGorny/WifSolver) repository. Because this environment does not have network access, the `examples` directory contains only a placeholder README. Copy the files from `WifSolver/examples` manually if you need them.
+
+## Examples
+
+The `examples` directory contains example configuration files used by the unit
+tests. Only a simple sample file is included due to the offline environment.
+You may place additional `.conf` files in this directory to further exercise the
+parser.
 
 ## Running tests
 
-The repository includes a basic test program `test_configuration.c` that exercises the module. Compile and run it with:
+Compile and run the tests with:
+
 
 ```sh
 gcc -Wall configuration.c test_configuration.c -o test_config

@@ -13,11 +13,13 @@
 
 typedef enum {
     WORK_START,
+
     WORK_END,
     WORK_JUMP,
     WORK_ROTATE,
     WORK_SEARCH,
     WORK_ALIKE
+
 } WORK;
 
 typedef struct guess_entry {
@@ -53,6 +55,7 @@ Configuration *configuration_create(const char *targetAddress,
                                     guess_entry *guess);
 
 Configuration *configuration_load_from_file(const char *filename);
+
 void configuration_free(Configuration *config);
 
 int configuration_get_checksum_chars(int compressed);

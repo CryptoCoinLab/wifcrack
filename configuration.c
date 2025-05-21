@@ -15,6 +15,7 @@ static unsigned char *compute_simple_hash(const char *str) {
 }
 
 
+
 static WORK parse_work(const char *str) {
     if (!str) return WORK_START;
     if (strcmp(str, "END") == 0) return WORK_END;
@@ -102,14 +103,6 @@ void configuration_free(Configuration *config) {
     free(config->wif_status);
     free(config->address);
     free(config->address_hash);
-
-    guess_entry *g = config->guess;
-    while (g) {
-        guess_entry *next = g->next;
-        free(g->chars);
-        free(g);
-        g = next;
-    }
 
     if (config->email_config) {
         free(config->email_config->email_from);
