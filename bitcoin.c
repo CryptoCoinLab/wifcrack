@@ -1,3 +1,5 @@
+#include <string.h>
+#include <stdio.h>
 #include <openssl/ec.h>
 #include <openssl/sha.h>
 #include <openssl/ripemd.h>
