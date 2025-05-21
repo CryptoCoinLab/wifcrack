@@ -94,12 +94,10 @@ typedef struct {
 } GuessPos;
 
 static char *work_thread(Worker *w, const char *suspect) {
-    /* In this simplified port we record the tested string and check against
-       the expected target WIF if provided. */
-    worker_add_result(w, suspect);
-    worker_result_to_file_partial(w, suspect);
     const char *target = configuration_get_wif_status(w->config);
     if (target && strcmp(suspect, target) == 0) {
+        worker_add_result(w, suspect);
+        worker_result_to_file_partial(w, suspect);
         return strdup(suspect);
     }
     return NULL;
@@ -140,24 +138,9 @@ static void perform_work_alike(Worker *w) {
     GuessPos positions[128];
     int count = 0;
 
-    const char *target_wif = configuration_get_wif_status(w->config);
-
     for (int i = 0; i < len && count < 128; ++i) {
-        int use_position = 0;
-        if (target_wif && (int)strlen(target_wif) == len) {
-            if (orig_wif[i] != target_wif[i])
-                use_position = 1;
-        } else {
-            /* fallback: use guess sets wherever the character appears */
-            use_position = 1;
-        }
-
-        if (!use_position)
-            continue;
-
         for (guess_entry *ge = w->config->guess; ge; ge = ge->next) {
-            if (strchr(ge->chars, orig_wif[i]) ||
-                (target_wif && strchr(ge->chars, target_wif[i]))) {
+            if (strchr(ge->chars, orig_wif[i])) {
                 positions[count].index = i;
                 positions[count].chars = ge->chars;
                 count++;
