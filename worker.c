@@ -88,17 +88,90 @@ size_t worker_results_count(const Worker *w) {
     return w ? w->result_count : 0;
 }
 
+typedef struct {
+    int index;        /* position in WIF */
+    const char *chars; /* possible replacements */
+} GuessPos;
+
+static char *work_thread(Worker *w, const char *suspect) {
+    /* In this simplified port we merely record the tested string. */
+    worker_add_result(w, suspect);
+    worker_result_to_file_partial(w, suspect);
+    return NULL; /* Returning a value would stop the search early. */
+}
+
+static void set_loop(Worker *w, char *wif_buf, GuessPos *pos, int count,
+                     int ix, char **result, time_t *alive_time) {
+    if (*result)
+        return;
+    if (ix == count) {
+        *result = work_thread(w, wif_buf);
+        return;
+    }
+
+    int position = pos[ix].index;
+    time_t now = time(NULL);
+    if (now - *alive_time > STATUS_PERIOD / 1000) {
+        printf("Alive! %s %s", wif_buf, ctime(&now));
+        *alive_time = now;
+    }
+
+    for (const char *p = pos[ix].chars; *p && !*result; ++p) {
+        wif_buf[position] = *p;
+        set_loop(w, wif_buf, pos, count, ix + 1, result, alive_time);
+    }
+}
+
+static void perform_work_alike(Worker *w) {
+    const char *orig_wif = configuration_get_wif(w->config);
+    if (!orig_wif)
+        return;
+
+    int len = (int)strlen(orig_wif);
+    char *buf = strdup(orig_wif);
+    if (!buf)
+        return;
+
+    GuessPos positions[128];
+    int count = 0;
+
+    for (int i = 0; i < len && count < 128; ++i) {
+        for (guess_entry *ge = w->config->guess; ge; ge = ge->next) {
+            if (strchr(ge->chars, orig_wif[i])) {
+                positions[count].index = i;
+                positions[count].chars = ge->chars;
+                count++;
+                break;
+            }
+        }
+    }
+
+    time_t alive = time(NULL);
+    char *result = NULL;
+    set_loop(w, buf, positions, count, 0, &result, &alive);
+    free(buf);
+    if (result)
+        free(result);
+}
+
 static void perform_work(Worker *w) {
     WORK work = configuration_get_work(w->config);
     const char *work_str = work_to_string(work);
     printf("Performing work: %s\n", work_str);
 
-    /* This is a simplified placeholder implementation.
-       Real logic for each work type would go here. */
-    char buf[128];
-    snprintf(buf, sizeof(buf), "Dummy result for %s", work_str);
-    worker_add_result(w, buf);
-    worker_result_to_file_partial(w, buf);
+    switch (work) {
+    case WORK_ALIKE:
+        perform_work_alike(w);
+        break;
+    default: {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Dummy result for %s", work_str);
+        worker_add_result(w, buf);
+        worker_result_to_file_partial(w, buf);
+        break;
+    }
+   }
+
 }
 
 void worker_run(Worker *w) {
