@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <dirent.h>
 
+
 int main() {
     // Test creating configuration with non-P2SH address
     Configuration *cfg = configuration_create("1BitcoinAddress", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "", WORK_START, NULL);
@@ -26,6 +27,7 @@ int main() {
     assert(cfg->is_p2sh == 1);
     assert(configuration_is_compressed(cfg));
     configuration_free(cfg);
+
 
     DIR *dir = opendir("examples");
     assert(dir != NULL);

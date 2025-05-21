@@ -51,6 +51,7 @@ Configuration *configuration_create(const char *targetAddress,
                                     const char *wifStatus,
                                     WORK work,
                                     guess_entry *guess);
+
 Configuration *configuration_load_from_file(const char *filename);
 void configuration_free(Configuration *config);
 
