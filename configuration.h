@@ -13,7 +13,13 @@
 
 typedef enum {
     WORK_START,
-    WORK_END
+
+    WORK_END,
+    WORK_JUMP,
+    WORK_ROTATE,
+    WORK_SEARCH,
+    WORK_ALIKE
+
 } WORK;
 
 typedef struct guess_entry {
@@ -47,6 +53,9 @@ Configuration *configuration_create(const char *targetAddress,
                                     const char *wifStatus,
                                     WORK work,
                                     guess_entry *guess);
+
+Configuration *configuration_load_from_file(const char *filename);
+
 void configuration_free(Configuration *config);
 
 int configuration_get_checksum_chars(int compressed);
@@ -64,11 +73,5 @@ EmailConfiguration *configuration_get_email(const Configuration *config);
 
 int *configuration_get_force_threads(const Configuration *config);
 void configuration_set_force_threads(Configuration *config, int *threads);
-
-/* Utility helpers for guess entry lists */
-void guess_entry_free(guess_entry *guess);
-
-/* Load configuration from a key=value file. */
-Configuration *configuration_load_from_file(const char *filename);
 
 #endif /* CONFIGURATION_H */

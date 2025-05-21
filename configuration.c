@@ -14,6 +14,18 @@ static unsigned char *compute_simple_hash(const char *str) {
     return hash;
 }
 
+
+
+static WORK parse_work(const char *str) {
+    if (!str) return WORK_START;
+    if (strcmp(str, "END") == 0) return WORK_END;
+    if (strcmp(str, "JUMP") == 0) return WORK_JUMP;
+    if (strcmp(str, "ROTATE") == 0) return WORK_ROTATE;
+    if (strcmp(str, "SEARCH") == 0) return WORK_SEARCH;
+    if (strcmp(str, "ALIKE") == 0) return WORK_ALIKE;
+    return WORK_START;
+}
+
 Configuration *configuration_create(const char *targetAddress,
                                     const char *wif,
                                     const char *wifStatus,
@@ -39,6 +51,51 @@ Configuration *configuration_create(const char *targetAddress,
     return config;
 }
 
+
+Configuration *configuration_load_from_file(const char *filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) return NULL;
+
+    char buf[256];
+    char *work_s = NULL;
+    char *wif = NULL;
+    char *address = NULL;
+    guess_entry *head = NULL, *tail = NULL;
+
+    while (fgets(buf, sizeof(buf), f)) {
+        char *p = buf;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '#' || *p == '\n' || *p == '\r' || *p == '\0')
+            continue;
+        size_t len = strlen(p);
+        while (len > 0 && (p[len-1] == '\n' || p[len-1] == '\r'))
+            p[--len] = '\0';
+        if (!work_s) {
+            work_s = strdup(p);
+        } else if (!wif) {
+            wif = strdup(p);
+        } else if (!address) {
+            address = strdup(p);
+        } else {
+            guess_entry *ge = calloc(1, sizeof(guess_entry));
+            if (!ge) break;
+            ge->index = tail ? tail->index + 1 : 0;
+            ge->chars = strdup(p);
+            if (tail) tail->next = ge; else head = ge;
+            tail = ge;
+        }
+    }
+    fclose(f);
+
+    WORK work = parse_work(work_s);
+    Configuration *cfg = configuration_create(address, wif, "", work, head);
+    free(work_s);
+    free(wif);
+    free(address);
+    return cfg;
+}
+
+
 void configuration_free(Configuration *config) {
     if (!config) return;
     free(config->target_address);
@@ -46,7 +103,7 @@ void configuration_free(Configuration *config) {
     free(config->wif_status);
     free(config->address);
     free(config->address_hash);
-    guess_entry_free(config->guess);
+
     if (config->email_config) {
         free(config->email_config->email_from);
         free(config->email_config->email_to);
@@ -101,81 +158,5 @@ int *configuration_get_force_threads(const Configuration *config) {
 
 void configuration_set_force_threads(Configuration *config, int *threads) {
     if (config) config->force_threads = threads;
-}
-
-void guess_entry_free(guess_entry *g) {
-    while (g) {
-        guess_entry *next = g->next;
-        free(g->chars);
-        free(g);
-        g = next;
-    }
-}
-
-static char *trim(char *str) {
-    while (*str == ' ' || *str == '\t') str++;
-    char *end = str + strlen(str);
-    while (end > str && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
-        *--end = '\0';
-    return str;
-}
-
-Configuration *configuration_load_from_file(const char *filename) {
-    FILE *f = fopen(filename, "r");
-    if (!f) return NULL;
-
-    char line[256];
-    char *target = NULL, *wif = NULL, *status = NULL;
-    WORK work = WORK_START;
-    guess_entry *guess_head = NULL, *guess_tail = NULL;
-
-    while (fgets(line, sizeof(line), f)) {
-        char *trimmed = trim(line);
-        if (trimmed[0] == '\0' || trimmed[0] == '#')
-            continue;
-
-        char *eq = strchr(trimmed, '=');
-        if (!eq) continue;
-        *eq = '\0';
-        char *key = trim(trimmed);
-        char *val = trim(eq + 1);
-
-        if (strcmp(key, "targetAddress") == 0) {
-            free(target);
-            target = strdup(val);
-        } else if (strcmp(key, "wif") == 0) {
-            free(wif);
-            wif = strdup(val);
-        } else if (strcmp(key, "wifStatus") == 0) {
-            free(status);
-            status = strdup(val);
-        } else if (strcmp(key, "work") == 0) {
-            if (strcmp(val, "END") == 0)
-                work = WORK_END;
-            else
-                work = WORK_START;
-        } else if (strncmp(key, "guess", 5) == 0) {
-            int index = atoi(key + 5);
-            guess_entry *g = calloc(1, sizeof(guess_entry));
-            if (!g) continue;
-            g->index = index;
-            g->chars = strdup(val);
-            if (!guess_head)
-                guess_head = g;
-            else
-                guess_tail->next = g;
-            guess_tail = g;
-        }
-    }
-
-    fclose(f);
-
-    Configuration *cfg = configuration_create(target, wif, status, work, guess_head);
-
-    free(target);
-    free(wif);
-    free(status);
-
-    return cfg;
 }
 
