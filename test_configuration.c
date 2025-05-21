@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <dirent.h>
+
 
 int main() {
     // Test creating configuration with non-P2SH address
@@ -25,6 +27,25 @@ int main() {
     assert(cfg->is_p2sh == 1);
     assert(configuration_is_compressed(cfg));
     configuration_free(cfg);
+
+
+    DIR *dir = opendir("examples");
+    assert(dir != NULL);
+    struct dirent *ent;
+    int parsed = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (!strstr(ent->d_name, ".conf"))
+            continue;
+        char path[256];
+        snprintf(path, sizeof(path), "examples/%s", ent->d_name);
+        cfg = configuration_load_from_file(path);
+        assert(cfg != NULL);
+        assert(configuration_get_wif(cfg) != NULL);
+        configuration_free(cfg);
+        parsed++;
+    }
+    closedir(dir);
+    printf("Parsed %d example configuration files.\n", parsed);
 
     printf("All tests passed.\n");
     return 0;

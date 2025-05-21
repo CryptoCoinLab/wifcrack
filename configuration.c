@@ -1,6 +1,7 @@
 #include "configuration.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 static unsigned char *compute_simple_hash(const char *str) {
     if (!str) return NULL;
@@ -11,6 +12,17 @@ static unsigned char *compute_simple_hash(const char *str) {
         hash[i] = (unsigned char)(i < len ? str[i] : i);
     }
     return hash;
+}
+
+
+static WORK parse_work(const char *str) {
+    if (!str) return WORK_START;
+    if (strcmp(str, "END") == 0) return WORK_END;
+    if (strcmp(str, "JUMP") == 0) return WORK_JUMP;
+    if (strcmp(str, "ROTATE") == 0) return WORK_ROTATE;
+    if (strcmp(str, "SEARCH") == 0) return WORK_SEARCH;
+    if (strcmp(str, "ALIKE") == 0) return WORK_ALIKE;
+    return WORK_START;
 }
 
 Configuration *configuration_create(const char *targetAddress,
@@ -38,6 +50,51 @@ Configuration *configuration_create(const char *targetAddress,
     return config;
 }
 
+
+Configuration *configuration_load_from_file(const char *filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) return NULL;
+
+    char buf[256];
+    char *work_s = NULL;
+    char *wif = NULL;
+    char *address = NULL;
+    guess_entry *head = NULL, *tail = NULL;
+
+    while (fgets(buf, sizeof(buf), f)) {
+        char *p = buf;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '#' || *p == '\n' || *p == '\r' || *p == '\0')
+            continue;
+        size_t len = strlen(p);
+        while (len > 0 && (p[len-1] == '\n' || p[len-1] == '\r'))
+            p[--len] = '\0';
+        if (!work_s) {
+            work_s = strdup(p);
+        } else if (!wif) {
+            wif = strdup(p);
+        } else if (!address) {
+            address = strdup(p);
+        } else {
+            guess_entry *ge = calloc(1, sizeof(guess_entry));
+            if (!ge) break;
+            ge->index = tail ? tail->index + 1 : 0;
+            ge->chars = strdup(p);
+            if (tail) tail->next = ge; else head = ge;
+            tail = ge;
+        }
+    }
+    fclose(f);
+
+    WORK work = parse_work(work_s);
+    Configuration *cfg = configuration_create(address, wif, "", work, head);
+    free(work_s);
+    free(wif);
+    free(address);
+    return cfg;
+}
+
+
 void configuration_free(Configuration *config) {
     if (!config) return;
     free(config->target_address);
@@ -45,6 +102,15 @@ void configuration_free(Configuration *config) {
     free(config->wif_status);
     free(config->address);
     free(config->address_hash);
+
+    guess_entry *g = config->guess;
+    while (g) {
+        guess_entry *next = g->next;
+        free(g->chars);
+        free(g);
+        g = next;
+    }
+
     if (config->email_config) {
         free(config->email_config->email_from);
         free(config->email_config->email_to);
