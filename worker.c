@@ -170,7 +170,8 @@ static void perform_work(Worker *w) {
         worker_result_to_file_partial(w, buf);
         break;
     }
-    }
+   }
+
 }
 
 void worker_run(Worker *w) {
