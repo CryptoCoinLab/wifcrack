@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <openssl/sha.h>
+#include <openssl/bn.h>
 
 static const char *work_to_string(WORK work) {
     switch (work) {
@@ -93,13 +95,120 @@ typedef struct {
     const char *chars; /* possible replacements */
 } GuessPos;
 
+#include "bitcoin.h"
+
+/* Decode a Base58Check encoded WIF string to a 32 byte private key.  The
+ * function performs a minimal validation of the checksum.  On success the
+ * private key bytes are written to ``priv_key_out`` and ``compressed_out`` is
+ * set to 1 when the key contains the optional compression flag.  Returns 1 on
+ * success and 0 on failure. */
+static int decode_wif(const char *wif, unsigned char *priv_key_out,
+                      int *compressed_out) {
+    const char *base58_chars =
+        "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    BIGNUM *bn = BN_new();
+    BIGNUM *div = BN_new();
+    BIGNUM *rem = BN_new();
+    BN_CTX *ctx = BN_CTX_new();
+    unsigned char *decoded = NULL;
+    int leading_zeros = 0;
+    size_t decoded_len;
+    int i;
+
+    if (compressed_out)
+        *compressed_out = 0;
+
+    if (!bn || !div || !rem || !ctx)
+        goto fail;
+
+    BN_zero(bn);
+
+    for (i = 0; wif[i]; i++) {
+        const char *p = strchr(base58_chars, wif[i]);
+        if (!p)
+            goto fail;
+        BN_mul_word(bn, 58);
+        BN_add_word(bn, p - base58_chars);
+    }
+
+    for (i = 0; wif[i] == '1'; i++)
+        leading_zeros++;
+
+    decoded_len = BN_num_bytes(bn) + leading_zeros;
+    decoded = malloc(decoded_len);
+    if (!decoded)
+        goto fail;
+
+    memset(decoded, 0, leading_zeros);
+    BN_bn2bin(bn, decoded + leading_zeros);
+
+    if (decoded_len != 37 && decoded_len != 38)
+        goto fail;
+
+    if (decoded[0] != 0x80)
+        goto fail;
+
+    /* verify checksum */
+    unsigned char checksum[SHA256_DIGEST_LENGTH];
+    SHA256(decoded, decoded_len - 4, checksum);
+    SHA256(checksum, SHA256_DIGEST_LENGTH, checksum);
+    if (memcmp(checksum, decoded + decoded_len - 4, 4) != 0)
+        goto fail;
+
+    memcpy(priv_key_out, decoded + 1, 32);
+
+    if (decoded_len == 38) {
+        if (decoded[33] != 0x01)
+            goto fail;
+        if (compressed_out)
+            *compressed_out = 1;
+    }
+
+    free(decoded);
+    BN_free(bn);
+    BN_free(div);
+    BN_free(rem);
+    BN_CTX_free(ctx);
+    return 1;
+
+fail:
+    if (decoded)
+        free(decoded);
+    if (bn)
+        BN_free(bn);
+    if (div)
+        BN_free(div);
+    if (rem)
+        BN_free(rem);
+    if (ctx)
+        BN_CTX_free(ctx);
+    return 0;
+}
+
 static char *work_thread(Worker *w, const char *suspect) {
-    const char *target = configuration_get_wif_status(w->config);
-    if (target && strcmp(suspect, target) == 0) {
+    const char *target_addr = configuration_get_target_address(w->config);
+    if (!target_addr)
+        return NULL;
+
+    unsigned char target_hash[20];
+    if (!base58_decode_bitcoin_address(target_addr, target_hash))
+        return NULL;
+
+    unsigned char priv_key[32];
+    int compressed = 0;
+    if (!decode_wif(suspect, priv_key, &compressed))
+        return NULL;
+
+    unsigned char suspect_hash[20];
+    if (!generate_pubkey_hash_from_privkey(priv_key, suspect_hash))
+        return NULL;
+
+    if (memcmp(target_hash, suspect_hash, 20) == 0) {
         worker_add_result(w, suspect);
         worker_result_to_file_partial(w, suspect);
         return strdup(suspect);
     }
+
     return NULL;
 }
 
