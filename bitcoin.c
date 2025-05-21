@@ -172,7 +172,7 @@ cleanup:
  * private key bytes are written to ``priv_key_out`` and ``compressed_out`` is
  * set to 1 when the key contains the optional compression flag.  Returns 1 on
  * success and 0 on failure. */
-static int decode_wif(const char *wif, unsigned char *priv_key_out, int *compressed_out) {
+int decode_wif(const char *wif, unsigned char *priv_key_out, int *compressed_out) {
     const char *base58_chars =
         "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     BIGNUM *bn = BN_new();
