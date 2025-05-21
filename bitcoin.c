@@ -94,7 +94,7 @@ int base58_decode_bitcoin_address(const char *base58_addr, unsigned char *pubkey
     BIGNUM *rem = BN_new();
     BN_CTX *ctx = BN_CTX_new();
     unsigned char *decoded_bytes = NULL;
-    int i, j, leading_zeros = 0;
+    int i, leading_zeros = 0;
     size_t decoded_len;
 
     if (!bn || !div || !rem || !ctx) {
