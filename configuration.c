@@ -9,7 +9,12 @@ static unsigned char *compute_simple_hash(const char *str) {
     unsigned char *hash = malloc(20);
     if (!hash) return NULL;
     for (size_t i = 0; i < 20; ++i) {
-        hash[i] = (unsigned char)(i < len ? str[i] : i);
+        unsigned char c = 0;
+        if (i < len)
+            c = (unsigned char)str[i];
+        else
+            c = (unsigned char)i;
+        hash[i] = c;
     }
     return hash;
 }
