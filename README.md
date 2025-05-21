@@ -24,3 +24,25 @@ gcc -Wall configuration.c test_configuration.c -o test_config
 
 The worker module can be built in a similar way by compiling `worker.c` together
 with the configuration sources if you want to experiment with it.
+
+### Main program
+
+The repository now contains a small C `main` program translated from the
+original Java entry point.  Build it together with the other modules:
+
+```sh
+gcc -Wall configuration.c worker.c main.c -o wifcrack
+```
+
+You can then run it with one of the example configuration files:
+
+```sh
+./wifcrack examples/example_ALIKE.conf
+```
+
+An integration test is provided in `test_main.c` and can be executed with:
+
+```sh
+gcc -Wall configuration.c worker.c test_main.c -o test_main
+./test_main
+```
