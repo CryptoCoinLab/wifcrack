@@ -49,8 +49,8 @@ int generate_pubkey_hash_from_privkey(const unsigned char *priv_key_bytes, unsig
         return 0;
     }
 
-    // 将公钥转换为未压缩格式（65字节，0x04 + X + Y）
-    pub_key_len = EC_POINT_point2oct(group, pub_key, POINT_CONVERSION_UNCOMPRESSED, NULL, 0, NULL);
+    // 将公钥转换为压缩格式（33字节，0x02/0x03 + X）
+    pub_key_len = EC_POINT_point2oct(group, pub_key, POINT_CONVERSION_COMPRESSED, NULL, 0, NULL);
     pub_key_bytes = (unsigned char *)malloc(pub_key_len);
     if (!pub_key_bytes) {
         fprintf(stderr, "Error: Memory allocation failed\n");
@@ -59,7 +59,7 @@ int generate_pubkey_hash_from_privkey(const unsigned char *priv_key_bytes, unsig
         return 0;
     }
 
-    EC_POINT_point2oct(group, pub_key, POINT_CONVERSION_UNCOMPRESSED, pub_key_bytes, pub_key_len, NULL);
+    EC_POINT_point2oct(group, pub_key, POINT_CONVERSION_COMPRESSED, pub_key_bytes, pub_key_len, NULL);
 
     // 计算 SHA256(公钥)
     SHA256(pub_key_bytes, pub_key_len, sha256_hash);
