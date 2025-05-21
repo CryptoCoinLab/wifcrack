@@ -4,6 +4,8 @@ This repository provides a small C module derived from a Java class used in a Bi
 
 The repository now also includes a very small `worker` module translated from the Java version.  It demonstrates how a worker can be driven by the `Configuration` object and provides simple result management routines.
 
+The new `java` directory holds the original Java source files that are slated for conversion.
+
 
 ## Examples
 
