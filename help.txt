@@ -1,0 +1,1 @@
+Usage: wifcrack <config> [email.conf]
