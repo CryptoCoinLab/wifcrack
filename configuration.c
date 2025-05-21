@@ -65,12 +65,24 @@ Configuration *configuration_load_from_file(const char *filename) {
     char *work_s = NULL;
     char *wif = NULL;
     char *address = NULL;
+    char *target_wif = NULL;
     guess_entry *head = NULL, *tail = NULL;
 
     while (fgets(buf, sizeof(buf), f)) {
         char *p = buf;
         while (*p == ' ' || *p == '\t') p++;
-        if (*p == '#' || *p == '\n' || *p == '\r' || *p == '\0')
+        if (*p == '#') {
+            if (!target_wif && strncasecmp(p, "#target:", 8) == 0) {
+                char *q = p + 8;
+                while (*q == ' ' || *q == '\t') q++;
+                size_t len = strlen(q);
+                while (len > 0 && (q[len-1] == '\n' || q[len-1] == '\r'))
+                    q[--len] = '\0';
+                target_wif = strdup(q);
+            }
+            continue;
+        }
+        if (*p == '\n' || *p == '\r' || *p == '\0')
             continue;
         size_t len = strlen(p);
         while (len > 0 && (p[len-1] == '\n' || p[len-1] == '\r'))
@@ -93,10 +105,13 @@ Configuration *configuration_load_from_file(const char *filename) {
     fclose(f);
 
     WORK work = parse_work(work_s);
-    Configuration *cfg = configuration_create(address, wif, "", work, head);
+    Configuration *cfg = configuration_create(address, wif,
+                                              target_wif ? target_wif : "",
+                                              work, head);
     free(work_s);
     free(wif);
     free(address);
+    free(target_wif);
     return cfg;
 }
 
